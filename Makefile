@@ -12,7 +12,7 @@ version:
 version_header: version
 	@echo "-define(VERSION, <<\"$(shell cat dalmatiner_frontend.version)\">>)." > apps/dalmatiner_frontend/include/dalmatiner_frontend_version.hrl
 
-clean:
+clean: deb-clean
 	$(REBAR) clean
 	make -C rel/pkg clean
 	-rm -r apps/*/ebin
@@ -23,3 +23,10 @@ rel: update
 
 package: rel
 	make -C rel/pkg package
+
+deb-clean: 
+	make -C rel/deb clean
+
+deb-prepare: update
+	$(REBAR) as deb release
+	make -C rel/deb prepare
