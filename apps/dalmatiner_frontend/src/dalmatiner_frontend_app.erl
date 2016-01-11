@@ -19,6 +19,8 @@ start(_StartType, _StartArgs) ->
                   {'_', [{"/", dalmatiner_idx_handler, []},
                          {"/buckets/", dalmatiner_bucket_handler, []},
                          {"/buckets/[...]", dalmatiner_metric_handler, []},
+                         {"/lastvalue/:bucket/[...]",
+                          dalmatiner_last_value_handler, []},
                          {"/js/[...]", cowboy_static,
                           {priv_dir, dalmatiner_frontend, "static/js",
                            [{mimetypes, cow_mimetypes, web}]}},
