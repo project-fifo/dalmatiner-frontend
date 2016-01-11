@@ -38,7 +38,7 @@ get_last_value(Bucket, Path) ->
     {Value, Offset} = find_last_point(Data),
     case Value of
         none -> null;
-        _ -> [{time, Time + Offset}, {value, Value}]
+        _ -> [{t, Time + Offset}, {v, Value}]
     end.
 
 find_last_point(Data) ->
