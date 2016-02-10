@@ -48,7 +48,7 @@ find_last_point(Data) ->
 %% mmath utility to make it more abstract.
 find_last_point(<<>>, {Pos, _Len}) ->
     {none, Pos / ?DATA_SIZE};
-find_last_point(<<>>, {0, _Len}) ->
+find_last_point(_Data, {0, _Len}) ->
     {none, 0};
 find_last_point(Data, Part) ->
     PData = binary:part(Data, Part),
