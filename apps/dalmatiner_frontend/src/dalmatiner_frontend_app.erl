@@ -18,6 +18,7 @@ start(_StartType, _StartArgs) ->
                   %% {URIHost, list({URIPath, Handler, Opts})}
                   {'_', [{"/", dalmatiner_idx_handler, []},
                          {"/status", dalmatiner_status_handler, []},
+                         {"/inspect", dalmatiner_inspect_handler, []},
                          {"/buckets/", dalmatiner_bucket_handler, []},
                          {"/buckets/[...]", dalmatiner_metric_handler, []},
                          {"/lastvalue/:bucket/[...]",
