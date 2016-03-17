@@ -9,8 +9,10 @@
 
 -ignore_xref([init/3, handle/2, terminate/3]).
 
-%% How long to look up for last value (2 Hours)
--define(LOOKUP_PERIOD, 2 * 3600).
+%% Parameters tuning get_last_value_lookup algortihm
+-define(INITIAL_LOOKUP_PERIOD, 65).
+-define(INITIAL_LOOKUP_DELAY, 10).
+-define(EXTRA_LOOKUP_PERIOD, 3600 - ?INITIAL_LOOKUP_PERIOD).
 
 init(_Transport, Req, []) ->
     {ok, Req, undefined}.
@@ -29,11 +31,27 @@ handle(Req, State) ->
 terminate(_Reason, _Req, State) ->
     {ok, State}.
 
+%% Get last value.
+%%
+%% To reduce impact on IO operation we do 2 phase fetch.
+%% First lookup is for just INITIAL_LOOKUP_PERIOD seconds up to INITIAL_LOOKUP_DELAY.
+%% With current parameters it has roughly 30% chance of being answered completely from
+%% memory. If no point is found during that lookup, we fire another full lookup to search
+%% point in further EXTRA_LOOKUP_PERIOD.
+%%
 get_last_value(Bucket, Path) ->
     Metric = dproto:metric_from_list(Path),
     Now = erlang:system_time(seconds),
-    Time = Now - ?LOOKUP_PERIOD,
-    Count = ?LOOKUP_PERIOD, %% TODO: we should take into account bucket resolution and maybe iterate in chunks
+    InitialLookupT = Now - ?INITIAL_LOOKUP_PERIOD - ?INITIAL_LOOKUP_DELAY,
+    case get_last_value(Bucket, Metric, InitialLookupT, ?INITIAL_LOOKUP_PERIOD) of
+        null ->
+            ExtraLookupT = InitialLookupT - ?EXTRA_LOOKUP_PERIOD,
+            get_last_value(Bucket, Metric, ExtraLookupT, ?EXTRA_LOOKUP_PERIOD);
+        V -> V
+    end.
+
+get_last_value(Bucket, Metric, Time, Period) ->
+    Count = Period, %% TODO: we should take into account bucket resolution and maybe iterate in chunks
     {ok, _Resolution, Data} = dalmatiner_connection:get(Bucket, Metric, Time, Count),
     {Value, Offset} = find_last_point(Data),
     case Value of
