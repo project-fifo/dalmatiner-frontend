@@ -15,7 +15,7 @@ handle(Req, State) ->
     case cowboy_req:qs_val(<<"q">>, Req0) of
         {undefined, Req1} ->
             {ok, Req2} = cowboy_req:reply(
-                           200,
+                           400,
                            [{<<"content-type">>, <<"text/plain">>}],
                            "Missing required q= parameter",
                            Req1),
