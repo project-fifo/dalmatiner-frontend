@@ -19,7 +19,7 @@
  {<<"lager">>,{pkg,<<"lager">>,<<"3.0.2">>},0},
  {<<"mmath">>,
   {git,"https://github.com/dataloop/mmath.git",
-       {ref,"eeb05411caf55e8576deceae12fb2d175681233f"}},
+       {ref,"6732e3f89a442efaae2787b9adcd30d3afcb89de"}},
   0},
  {<<"msgpack">>,{pkg,<<"msgpack">>,<<"0.3.5">>},0},
  {<<"poolboy">>,{pkg,<<"poolboy">>,<<"1.5.1">>},1},
