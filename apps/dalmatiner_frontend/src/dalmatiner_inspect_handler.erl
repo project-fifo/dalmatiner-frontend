@@ -15,7 +15,7 @@ handle(Req, State) ->
     case cowboy_req:qs_val(<<"q">>, Req0) of
         {undefined, Req1} ->
             {ok, Req2} = cowboy_req:reply(
-                           200,
+                           400,
                            [{<<"content-type">>, <<"text/plain">>}],
                            "Missing required q= parameter",
                            Req1),
@@ -28,7 +28,10 @@ handle(Req, State) ->
                         cowboy_req:reply(400, [], Error, Req1),
                     {ok, Req2, State};
                 {ok, {Parts, Start, Count}} ->
-                    D = [{<<"b">>, inspect_buckets(Parts)},
+                    #{buckets := BucketSet,
+                      roots := RootSet} = inspect_parts(Parts),
+                    D = [{<<"b">>, sets:to_list(BucketSet)},
+                         {<<"r">>, sets:to_list(RootSet)},
                          {<<"s">>, Start},
                          {<<"c">>, Count}],
                     {ContentType, Req2} = dalmatiner_idx_handler:content_type(Req1),
@@ -39,25 +42,36 @@ handle(Req, State) ->
 terminate(_Reason, _Req, State) ->
     {ok, State}.
 
-inspect_buckets(Parts) ->
-    BSet = get_buckets(Parts, sets:new()),
-    sets:to_list(BSet).
+inspect_parts(Parts) ->
+    inspect_parts(Parts,
+                  #{buckets => sets:new(),
+                    roots => sets:new()}).
 
-get_buckets([], Acc) ->
+inspect_parts([], Acc) ->
     Acc;
-get_buckets([Part | Rest], Acc) ->
-    Acc1 = get_part_buckets(Part, Acc),
-    get_buckets(Rest, Acc1).
+inspect_parts([Part | Rest], Acc) ->
+    Acc1 = inspect_part(Part, Acc),
+    inspect_parts(Rest, Acc1).
 
-get_part_buckets({dqe_get, [Bucket, _Metric]}, Acc) ->
-    sets:add_element(Bucket, Acc);
-get_part_buckets({_Operand, []}, Acc) ->
+inspect_part({dqe_get, [Bucket, Metric]},
+             Acc = #{buckets := BucketSet1,
+                     roots := RootSet1}) ->
+    Root = metric_root(Metric),
+    BucketSet2 = sets:add_element(Bucket, BucketSet1),
+    RootSet2 = sets:add_element(Root, RootSet1),
+    Acc#{buckets := BucketSet2, roots := RootSet2};
+inspect_part({dqe_sum, [Nested]}, Acc) ->
+    inspect_part({dqe_sum_nested, Nested}, Acc);
+inspect_part({_Operand, []}, Acc) ->
     Acc;
-get_part_buckets({_Operand, [Nested | Rest]}, Acc) ->
+inspect_part({_Operand, [Nested | Rest]}, Acc) ->
     Acc1 = case is_tuple(Nested) of
-               true -> get_part_buckets(Nested, Acc);
+               true -> inspect_part(Nested, Acc);
                false -> Acc
            end,
-    get_part_buckets({null, Rest}, Acc1);
-get_part_buckets({_Operand, Nested}, Acc) when is_tuple(Nested) ->
-    get_part_buckets(Nested, Acc).
+    inspect_part({null, Rest}, Acc1);
+inspect_part({_Operand, Nested}, Acc) when is_tuple(Nested) ->
+    inspect_part(Nested, Acc).
+
+metric_root(Metric) ->
+    hd(dproto:metric_to_list(Metric)).
