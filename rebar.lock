@@ -11,7 +11,7 @@
  {<<"dproto">>,{pkg,<<"dproto">>,<<"0.1.12">>},1},
  {<<"dqe">>,
   {git,"https://github.com/dataloop/dqe.git",
-       {ref,"0daec2d565e5d200a68547ca23f5e80832a561bd"}},
+       {ref,"8e87fb13679b42fa00b61d2db664bbb97e157b37"}},
   0},
  {<<"eper">>,{pkg,<<"eper">>,<<"0.94.0">>},0},
  {<<"erlang_localtime">>,{pkg,<<"erlang_localtime">>,<<"1.0.0">>},2},
