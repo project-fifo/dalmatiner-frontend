@@ -21,19 +21,27 @@ handle(Req, State) ->
                            Req1),
             {ok, Req2, State};
         {Q, Req1} ->
+            %% TODO: dqe:prapre is rather expensive, because it involves meta-data
+            %% lookups and glob expansion. Probably we should get raw parsed tree
+            %% by calling dql:prepare and infere ownership from that
+            %%
+            %% Alternatively we may not need to inspec it we use only meta-data queries
+            %% with tenency as one of dimensions
             case dqe:prepare(Q) of
                 {error, E} ->
                     Error = list_to_binary(dqe:error_string({error, E})),
                     {ok, Req2} =
                         cowboy_req:reply(400, [], Error, Req1),
                     {ok, Req2, State};
-                {ok, {Parts, Start, Count}} ->
+                {ok, {Total, Unique, Parts, Start, Count}} ->
                     #{buckets := BucketSet,
                       roots := RootSet} = inspect_parts(Parts),
                     D = [{<<"b">>, sets:to_list(BucketSet)},
                          {<<"r">>, sets:to_list(RootSet)},
                          {<<"s">>, Start},
-                         {<<"c">>, Count}],
+                         {<<"c">>, Count},
+                         {<<"t">>, Total},
+                         {<<"u">>, Unique}],
                     {ContentType, Req2} = dalmatiner_idx_handler:content_type(Req1),
                     dalmatiner_idx_handler:send(ContentType, D, Req2, State)
             end
