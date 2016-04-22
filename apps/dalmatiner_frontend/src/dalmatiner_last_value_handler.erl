@@ -9,10 +9,10 @@
 
 -ignore_xref([init/3, handle/2, terminate/3]).
 
-%% Parameters tuning get_last_value_lookup algortihm
--define(INITIAL_LOOKUP_PERIOD, 65).
--define(INITIAL_LOOKUP_DELAY, 10).
--define(EXTRA_LOOKUP_PERIOD, 3600 - ?INITIAL_LOOKUP_PERIOD).
+-define(LOOKUP_PERIOD, 3600).
+
+%% Public Api
+%% ==========
 
 init(_Transport, Req, []) ->
     {ok, Req, undefined}.
@@ -31,6 +31,9 @@ handle(Req, State) ->
 terminate(_Reason, _Req, State) ->
     {ok, State}.
 
+%% Private functions
+%% =================
+
 %% Get last value.
 %%
 %% To reduce impact on IO operation we do 2 phase fetch.
@@ -42,17 +45,11 @@ terminate(_Reason, _Req, State) ->
 get_last_value(Bucket, Path) ->
     Metric = dproto:metric_from_list(Path),
     Now = erlang:system_time(seconds),
-    InitialLookupT = Now - ?INITIAL_LOOKUP_PERIOD - ?INITIAL_LOOKUP_DELAY,
-    case get_last_value(Bucket, Metric, InitialLookupT, ?INITIAL_LOOKUP_PERIOD) of
-        null ->
-            ExtraLookupT = InitialLookupT - ?EXTRA_LOOKUP_PERIOD,
-            get_last_value(Bucket, Metric, ExtraLookupT, ?EXTRA_LOOKUP_PERIOD);
-        V -> V
-    end.
+    get_last_value(Bucket, Metric, Now - ?LOOKUP_PERIOD, ?LOOKUP_PERIOD).
 
 get_last_value(Bucket, Metric, Time, Period) ->
     Count = Period, %% TODO: we should take into account bucket resolution and maybe iterate in chunks
-    {ok, _Resolution, Data} = dalmatiner_connection:get(Bucket, Metric, Time, Count),
+    {ok, _Resolution, Data} = ddb_connection:get(Bucket, Metric, Time, Count),
     {Value, Offset} = find_last_point(Data),
     case Value of
         none -> null;
