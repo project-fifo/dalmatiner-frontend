@@ -17,12 +17,37 @@ start(_StartType, _StartArgs) ->
                  [
                   %% {URIHost, list({URIPath, Handler, Opts})}
                   {'_', [{"/", dalmatiner_idx_handler, []},
-                         {"/status", dalmatiner_status_handler, []},
-                         {"/inspect", dalmatiner_inspect_handler, []},
+                         %% Old style API
                          {"/buckets/", dalmatiner_bucket_handler, []},
                          {"/buckets/[...]", dalmatiner_metric_handler, []},
+
+                         %% New style API
+                         %% List all collections
+                         {"/collections", dalmatiner_collection_h, []},
+                         %% List all metrics in a collection
+                         {"/collections/:collection/metrics/",
+                          dalmatiner_metric_h, []},
+                         %% List all namespaces
+                         {"/collections/:collection/metrics/"
+                          ":metric/namespaces/",
+                          dalmatiner_namespace_h, []},
+                         %% List all tags in a namespace
+                         {"/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/",
+                          dalmatiner_tag_h, []},
+                         %% List all values in a tag
+                         {"/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/"
+                          ":tag/values",
+                          dalmatiner_value_h, []},
+
+                         %% Dataloop API extension
+                         {"/status", dalmatiner_status_handler, []},
+                         {"/inspect", dalmatiner_inspect_handler, []},
                          {"/lastvalue/:bucket/[...]",
                           dalmatiner_last_value_handler, []},
+
+                         %% STatic content.
                          {"/js/[...]", cowboy_static,
                           {priv_dir, dalmatiner_frontend, "static/js",
                            [{mimetypes, cow_mimetypes, web}]}},
