@@ -44,8 +44,6 @@ start(_StartType, _StartArgs) ->
                          %% Dataloop API extension
                          {"/status", dalmatiner_status_handler, []},
                          {"/inspect", dalmatiner_inspect_handler, []},
-                         {"/lastvalue/:bucket/[...]",
-                          dalmatiner_last_value_handler, []},
 
                          %% STatic content.
                          {"/js/[...]", cowboy_static,
