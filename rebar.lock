@@ -29,7 +29,7 @@
  {<<"hdr_histogram">>,{pkg,<<"hdr_histogram">>,<<"0.2.0">>},1},
  {<<"jsone">>,{pkg,<<"jsone">>,<<"1.2.3">>},0},
  {<<"lager">>,{pkg,<<"lager">>,<<"2.1.1">>},0},
- {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.0-alpha3">>},0},
+ {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.0-alpha6">>},0},
  {<<"mongodb">>,
   {git,"https://github.com/comtihon/mongodb-erlang.git",
        {ref,"87610554a63f095f8b7722a80540507cf1c504a1"}},
