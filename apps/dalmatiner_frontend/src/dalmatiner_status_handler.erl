@@ -1,13 +1,7 @@
-%% Feel free to use, reuse and abuse the code in this file.
-
-%% @doc POST echo handler.
 -module(dalmatiner_status_handler).
-
--include_lib("mmath/include/mmath.hrl").
+-behaviour(cowboy_http_handler).
 
 -export([init/3, handle/2, terminate/3]).
-
--ignore_xref([init/3, handle/2, terminate/3]).
 
 -define(TIMEOUT, 30000).
 
@@ -28,8 +22,8 @@ handle(Req, State) ->
              end,
     send(ContentType, Status, Data, Req1, State).
 
-terminate(_Reason, _Req, State) ->
-    {ok, State}.
+terminate(_Reason, _Req, _State) ->
+    ok.
 
 check_ddb_status() ->
     {ok, {Host, Port}} = application:get_env(dqe, backend),
@@ -56,7 +50,7 @@ send(msgpack, Status, D, Req, State) ->
           msgpack:pack(D, [jsx]), Req),
     {ok, Req1, State};
 send(_, 200, _D, Req, State) ->
-    {ok, Req1} = 
+    {ok, Req1} =
         cowboy_req:reply(
           200, [{<<"content-type">>, <<"text/plain">>}],
           "dfe running\n", Req),

@@ -1,5 +1,5 @@
-%% @doc POST echo handler.
 -module(dalmatiner_inspect_handler).
+-behaviour(cowboy_http_handler).
 
 -export([init/3, handle/2, terminate/3]).
 
@@ -21,12 +21,12 @@ handle(Req, State) ->
                            Req1),
             {ok, Req2, State};
         {Q, Req1} ->
-            %% TODO: dqe:prapre is rather expensive, because it involves meta-data
-            %% lookups and glob expansion. Probably we should get raw parsed tree
-            %% by calling dql:prepare and infere ownership from that
+            %% TODO: dqe:prapre is rather expensive, because it involves
+            %% meta-data lookups and glob expansion. Probably we should get raw
+            %% parsed tree by calling dql:prepare and infere ownership from that
             %%
-            %% Alternatively we may not need to inspec it we use only meta-data queries
-            %% with tenency as one of dimensions
+            %% Alternatively we may not need to inspec it we use only meta-data
+            %% queries with tenency as one of dimensions
             case dqe:prepare(Q) of
                 {error, E} ->
                     Error = list_to_binary(dqe:error_string({error, E})),
@@ -42,13 +42,13 @@ handle(Req, State) ->
                          {<<"c">>, Count},
                          {<<"t">>, Total},
                          {<<"u">>, Unique}],
-                    {ContentType, Req2} = dalmatiner_idx_handler:content_type(Req1),
-                    dalmatiner_idx_handler:send(ContentType, D, Req2, State)
+                    {CType, Req2} = dalmatiner_idx_handler:content_type(Req1),
+                    dalmatiner_idx_handler:send(CType, D, Req2, State)
             end
     end.
 
-terminate(_Reason, _Req, State) ->
-    {ok, State}.
+terminate(_Reason, _Req, _State) ->
+    ok.
 
 inspect_parts(Parts) ->
     inspect_parts(Parts,
