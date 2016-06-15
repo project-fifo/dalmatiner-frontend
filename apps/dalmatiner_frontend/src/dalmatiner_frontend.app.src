@@ -15,7 +15,8 @@
                   cowboy,
                   ejwt,
                   mongodb,
-                  poolboy
+                  poolboy,
+                  base16
                  ]},
   {mod, { dalmatiner_frontend_app, []}},
   {env, []}

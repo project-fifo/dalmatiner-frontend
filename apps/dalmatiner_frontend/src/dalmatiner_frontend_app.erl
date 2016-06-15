@@ -77,29 +77,15 @@ start(_StartType, _StartArgs) ->
     {ok, _} = cowboy:start_http(dalmatiner_http_listener, Listeners,
                                 [{port, Port}],
                                 [{env, [{dispatch, Dispatch}]},
-                                 {onrequest, fun onrequest_hook/1},
+                                 {middlewares,
+                                  [dalmatiner_dl_authn_m,
+                                   cowboy_router,
+                                   %% TODO: add authorization layer
+                                   %%dalmatiner_dl_authz_m,
+                                   cowboy_handler]},
                                  {max_keepalive, 5},
                                  {timeout, 50000}]),
     dalmatiner_frontend_sup:start_link().
 
 stop(_State) ->
     ok.
-
-%% ===================================================================
-%% Internal functions
-%% ===================================================================
-
-onrequest_hook(Req) ->
-    %% Cowboy will just return with empty response in case of errors inside
-    try dalmatiner_dl_auth_hook:handle(Req) of
-        {ok, Req1} ->
-            Req1;
-        {noauth, Req1} ->
-            {ok, Req2} = cowboy_req:reply(403, Req1),
-            Req2
-    catch
-        Exception:Reason ->
-            Stack = erlang:get_stacktrace(),
-            lager:error("Error in authorization hook (~p:~p): ~p", [Exception, Reason, Stack]),
-            cowboy_req:reply(500, Req)
-    end.
