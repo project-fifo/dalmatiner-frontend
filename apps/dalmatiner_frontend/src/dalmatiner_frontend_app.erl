@@ -17,9 +17,6 @@ start(_StartType, _StartArgs) ->
                  [
                   %% {URIHost, list({URIPath, Handler, Opts})}
                   {'_', [{"/", dalmatiner_idx_handler, []},
-                         %% Old style API
-                         {"/buckets/", dalmatiner_bucket_h, []},
-                         {"/buckets/[...]", dalmatiner_key_h, []},
 
                          %% New style API
                          %% List all collections
@@ -73,15 +70,22 @@ start(_StartType, _StartArgs) ->
                           {priv_dir, dalmatiner_frontend, "static/",
                            [{mimetypes, cow_mimetypes, web}]}}]}
                  ]),
+
+    %% Access permissions in a format: [{MatchPattern}, Requirement]
+    Acl = [{{path, <<"/collections/">>}, require_collection_access},
+           {{path, <<"/collections">>}, require_authenticated},
+           {{param, <<"q">>}, require_query_collection_access}],
+
     %% Name, NbAcceptors, TransOpts, ProtoOpts
     {ok, _} = cowboy:start_http(dalmatiner_http_listener, Listeners,
                                 [{port, Port}],
-                                [{env, [{dispatch, Dispatch}]},
+                                [{env, 
+                                  [{dispatch, Dispatch},
+                                   {acl, Acl}]},
                                  {middlewares,
                                   [dalmatiner_dl_authn_m,
                                    cowboy_router,
-                                   %% TODO: add authorization layer
-                                   %%dalmatiner_dl_authz_m,
+                                   dalmatiner_dl_authz_m,
                                    cowboy_handler]},
                                  {max_keepalive, 5},
                                  {timeout, 50000}]),

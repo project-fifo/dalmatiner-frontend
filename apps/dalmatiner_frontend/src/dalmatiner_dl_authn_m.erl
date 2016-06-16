@@ -3,11 +3,16 @@
 
 -export([execute/2]).
 
+%%
+%% Authentycation middleware entry point
+%% =====================================
 
 -spec execute(cowboy_req:req(), [{atom(), any()}]) ->
                      {ok, cowboy_req:req(), [{atom(), any()}]} |
                      {halt, cowboy_req:req()}.
 execute(Req, Env) ->
+    %% Cowboy requires middleware to wrap it's own exceptions. Otherwise
+    %% you get empty response with very little information about what happened.
     try authenticate(Req) of
         {ok, Req1} ->
             {ok, Req1, Env};
@@ -16,7 +21,7 @@ execute(Req, Env) ->
     catch
         Exception:Reason ->
             Stack = erlang:get_stacktrace(),
-            lager:error("Error in authorization hook (~p:~p): ~p", [Exception, Reason, Stack]),
+            lager:error("Error in authntication middleware (~p:~p): ~p", [Exception, Reason, Stack]),
             {error, 500, Req}
     end.
 
@@ -26,23 +31,28 @@ execute(Req, Env) ->
 %% =================
 
 authenticate(Req) ->
-    %% Cowboy requires middleware to wrap it's own exceptions. Otherwise
-    %% you get empty response with very little information about what happened.
-    {Auth, Req1} = cowboy_req:header(<<"authorization">>, Req),
-    %% TODO: Respond with 401 when no authorization token and try to lookup token in url params
-    [AuthType, JWT] = binary:split(Auth, <<" ">>),
-    "bearer" = string:to_lower(binary_to_list(AuthType)),
-    {ok, Key} = application:get_env(dalmatiner_frontend, jwt_secret),
-    Payload = ejwt:decode(JWT, Key),
-    Req2 = populate_req_meta(Payload, Req1),
-    case cowboy_req:meta(dl_auth_is_authenticated, Req2) of
-        {true, Req3} ->
-            {ok, Req3};
-        {_, Req3} ->
-            {ok, Req4} = cowboy_req:reply(403, Req3),
-            {halt, Req4}
+    case cowboy_req:header(<<"authorization">>, Req) of
+        {undefined, Req1} ->
+            %% If there is no authorization header, then continoue anonymously
+            {ok, Req1};
+        {Auth, Req1} ->
+            [RawType | Rest] = binary:split(Auth, <<" ">>),
+            Type = string:to_lower(binary_to_list(RawType)),
+            authenticate_header([Type | Rest], Req1)
     end.
 
+authenticate_header(["bearer", Token], Req) ->
+    {ok, Key} = application:get_env(dalmatiner_frontend, jwt_secret),
+    case ejwt:decode(Token, Key) of
+        error ->
+            {ok, Req1} = cowboy_req:reply(403, Req),
+            {halt, Req1};
+        Payload ->
+            Req1 = populate_req_meta(Payload, Req),
+            {ok, Req1}
+    end;
+authenticate_header(_Parts, Req) ->
+    {ok, Req}.
 
 populate_req_meta([], Req) ->
     Req;

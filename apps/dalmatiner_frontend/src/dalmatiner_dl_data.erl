@@ -5,7 +5,7 @@
 
 %% API
 -export([start_link/1]).
--export([user_orgs/1]).
+-export([user_orgs/1, user_org_access/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -22,17 +22,24 @@
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
-
+-spec user_orgs(<<_:96>>) -> {ok, [#{}]}.
 user_orgs(UserId) ->
-    poolboy:transaction(?POOL,
-                        fun(S) ->
-                                gen_server:call(S, {user_orgs, UserId}, ?TIMEOUT)
-                        end, ?TIMEOUT).
+    call({user_orgs, UserId}).
+
+-spec user_org_access(<<_:96>>, <<_:96>>) -> {ok, allow | deny}.
+user_org_access(UserId, OrgId) ->
+    call({user_org_access, UserId, OrgId}).
     
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
+
+call(Request) ->
+    poolboy:transaction(?POOL,
+                        fun(S) ->
+                                gen_server:call(S, Request, ?TIMEOUT)
+                        end, ?TIMEOUT).
 
 init(ConnectionArgs) ->
     {ok, C} = mc_worker_api:connect(ConnectionArgs),
@@ -41,6 +48,9 @@ init(ConnectionArgs) ->
 handle_call({user_orgs, UserId}, _From, #state{connection = C} = State) ->
     Orgs = find_user_orgs(C, UserId),
     {reply, {ok, Orgs}, State};
+handle_call({user_org_access, UserId, OrgId}, _From, #state{connection = C} = State) ->
+    Access = check_user_org_access(C, UserId, OrgId),
+    {reply, {ok, Access}, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -90,3 +100,22 @@ find_orgs_for_gids(C, Gids) ->
                            end, [], Cursor, infinity),
     mc_cursor:close(Cursor),
     Orgs.
+
+check_user_org_access(C, UserId, OrgId) ->
+    UserOid = {base16:decode(UserId)},
+    OrgOid = {base16:decode(OrgId)},
+    Org = mc_worker_api:find_one(C, <<"orgs">>, {<<"_id">>, OrgOid},
+                                 #{projector => {<<"group">>, true}}),
+    Gid = maps:get(<<"group">>, Org, undefined),
+    Group = mc_worker_api:find_one(C, <<"groups">>, 
+                                   {<<"_id">>, Gid,
+                                    <<"users.user">>, UserOid},
+                                   #{projector => {<<"users">>, true}}),
+    case Group of
+        #{<<"_id">> := _} ->
+            allow;
+        _ ->
+            deny    
+    end.
+
+    
