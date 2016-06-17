@@ -5,7 +5,7 @@
 
 %% API
 -export([start_link/1]).
--export([user_orgs/1, user_org_access/2]).
+-export([user_orgs/1, user_org_access/2, agent_access/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -15,6 +15,8 @@
 -define(TIMEOUT, 30000).
 -record(state, {connection}).
 
+%% TODO: Add debug timing arround DB queries
+
 %% ===================================================================
 %% API functions
 %% ===================================================================
@@ -22,14 +24,17 @@
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
--spec user_orgs(<<_:96>>) -> {ok, [#{}]}.
+-spec user_orgs(binary()) -> {ok, [#{}]}.
 user_orgs(UserId) ->
     call({user_orgs, UserId}).
 
--spec user_org_access(<<_:96>>, <<_:96>>) -> {ok, allow | deny}.
+-spec user_org_access(binary(), binary()) -> {ok, allow | deny}.
 user_org_access(UserId, OrgId) ->
     call({user_org_access, UserId, OrgId}).
-    
+
+-spec agent_access(binary(), [{<<_:96>>}]) -> {ok, allow | deny}.
+agent_access(Finger, OrgOids) ->
+    call({agent_access, Finger, OrgOids}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -50,6 +55,9 @@ handle_call({user_orgs, UserId}, _From, #state{connection = C} = State) ->
     {reply, {ok, Orgs}, State};
 handle_call({user_org_access, UserId, OrgId}, _From, #state{connection = C} = State) ->
     Access = check_user_org_access(C, UserId, OrgId),
+    {reply, {ok, Access}, State};
+handle_call({agent_access, Finger, OrgOids}, _From, #state{connection = C} = State) ->
+    Access = check_agent_access(C, Finger, OrgOids),
     {reply, {ok, Access}, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -118,4 +126,14 @@ check_user_org_access(C, UserId, OrgId) ->
             deny    
     end.
 
-    
+check_agent_access(C, Finger, OrgOids) ->
+    Agent = mc_worker_api:find_one(C, <<"agents">>,
+                                   {<<"_id">>, Finger,
+                                    <<"org">>, {<<"$in">>, OrgOids}},
+                                   #{projector => {<<"_id">>, true}}),
+    case Agent of
+        #{<<"_id">> := _} ->
+            allow;
+        _ ->
+            deny
+    end.

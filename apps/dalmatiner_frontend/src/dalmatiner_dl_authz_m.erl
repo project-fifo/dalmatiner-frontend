@@ -34,6 +34,9 @@ authorize(Req, Env) ->
             {ok, Req1};
         {deny, Req1} ->
             {ok, Req2} = cowboy_req:reply(403, Req1),
+            {halt, Req2};
+        {error, Status, Error, Req1} ->
+            {ok, Req2} = cowboy_req:reply(Status, [], Error, Req1),
             {halt, Req2}
     end.
 
@@ -54,6 +57,13 @@ match({path, Pattern}, Req) ->
             {true, Req1};
         _ ->
             {false, Req1}
+    end;
+match({param, Name}, Req) ->
+    case cowboy_req:qs_val(Name, Req) of
+        {undefined, Req1} ->
+            {false, Req1};
+        {_, Req1} ->
+            {true, Req1}
     end.
 
 match_binary(Subject, Pattern) when size(Pattern) =< size(Subject) ->
@@ -81,4 +91,49 @@ assert(require_collection_access, Req) ->
             {Access, Req2};
         {_, Req1} ->
             {deny, Req2}
+    end;
+assert(require_query_collection_access, Req) ->
+    {Q, Req1} =  cowboy_req:qs_val(<<"q">>, Req),
+    case dql:prepare(Q) of
+        {ok, {Parts, _Start, _Count, _Res, Aliases, _Buckets}} ->
+            {UserId, Req2} = cowboy_req:meta(dl_auth_user, Req1),
+            {ok, Orgs} = dalmatiner_dl_data:user_orgs(UserId),
+            OrgOidMap = lists:foldl(fun (O, Acc) ->
+                                            Acc#{maps:get(<<"_id">>, O) => allow}
+                                   end, #{}, Orgs),
+            AList = gb_trees:values(Aliases),
+            Access = check_query_access(Parts ++ AList, OrgOidMap),
+            {Access, Req2};
+        {error, E} ->
+            Error = list_to_binary(dqe:error_string({error, E})),
+            lager:warning("Error in query validation [~s]: ~p", [Q, E]),
+            {error, 400, Error, Req1}
     end.
+
+
+check_query_access([], _) ->
+    allow;
+check_query_access([Part | Rest], OrgOidMap) ->
+    case check_query_part_access(Part, OrgOidMap) of
+        allow -> check_query_access(Rest, OrgOidMap);
+        Access -> Access
+    end.
+
+check_query_part_access({named, _N, Nested}, OrgOidMap) ->
+    check_query_part_access(Nested, OrgOidMap);
+check_query_part_access({calc, _Chain, Selector}, OrgOidMap) ->
+    check_query_part_access(Selector, OrgOidMap);
+% Always allow access to variables, because they will be checked in aliases section
+check_query_part_access({var, _Name}, _OrgOidMap) ->
+    % TODO: Need to test access rights with aliases
+    allow;
+% Right now access by bucket is groupped and finger is first segment of metric
+check_query_part_access({get, {_Bucket, Metric}}, OrgOidMap) ->
+    Finger = hd(Metric),
+    OrgOids = maps:keys(OrgOidMap),
+    {ok, Access} = dalmatiner_dl_data:agent_access(Finger, OrgOids),
+    Access;
+% Mapping by colleciton already uses collection as org id
+check_query_part_access({lookup, {in, Collection, _Metric}}, OrgOidMap) ->
+    Oid = {base16:decode(Collection)},
+    maps:get(Oid, OrgOidMap, deny).
