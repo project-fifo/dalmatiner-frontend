@@ -73,10 +73,8 @@ populate_req_meta([{<<"exp">>, E} | Rest], Req) ->
 populate_req_meta([{<<"jti">>, TokenId} | Rest], Req) ->
     case dalmatiner_dl_data:token(TokenId) of
         {ok, #{} = T} when map_size(T) == 0 ->
-            lager:debug("Token not found: ~p", [TokenId]),
             populate_req_meta(Rest, Req);
         {ok, #{<<"scopes">> := Scopes}} ->
-            lager:debug("Checking token scopes: ~p", [Scopes]),
             IsAuth = has_org_scope(Scopes),
             Req1 = cowboy_req:set_meta(dl_auth_is_authenticated, IsAuth, Req),
             populate_req_meta(Rest, Req1)

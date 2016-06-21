@@ -15,8 +15,6 @@
 -define(TIMEOUT, 30000).
 -record(state, {connection}).
 
-%% TODO: Add debug timing arround DB queries
-
 %% ===================================================================
 %% API functions
 %% ===================================================================
@@ -55,16 +53,24 @@ init(ConnectionArgs) ->
     {ok, #state{connection = C}, 0}.
 
 handle_call({user_orgs, UserId}, _From, #state{connection = C} = State) ->
+    T0 = erlang:system_time(),
     Orgs = find_user_orgs(C, UserId),
+    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Orgs}, State};
 handle_call({token, TokenId}, _From, #state{connection = C} = State) ->
+    T0 = erlang:system_time(),
     Token = find_token(C, TokenId),
+    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Token}, State};
 handle_call({user_org_access, UserId, OrgId}, _From, #state{connection = C} = State) ->
+    T0 = erlang:system_time(),
     Access = check_user_org_access(C, UserId, OrgId),
+    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Access}, State};
 handle_call({agent_access, Finger, OrgOids}, _From, #state{connection = C} = State) ->
+    T0 = erlang:system_time(),
     Access = check_agent_access(C, Finger, OrgOids),
+    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Access}, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -85,6 +91,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+tdelta(T0) ->
+    (erlang:system_time() - T0)/1000/1000.
 
 find_user_orgs(C, UserId) ->
     Gids = find_user_group_ids(C, UserId),
