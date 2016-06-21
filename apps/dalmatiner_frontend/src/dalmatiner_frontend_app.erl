@@ -107,7 +107,7 @@ start(_StartType, _StartArgs) ->
     %% Access permissions in a format: [{MatchPattern}, Requirement]
     Acl = [{{path, <<"/dl/collections/">>}, require_collection_access},
            {{path, <<"/dl/collections">>}, require_authenticated},
-           {[{path, <<"/dl">>}, {param, <<"q">>}], 
+           {[{path, <<"/dl">>}, {param, <<"q">>}],
             require_query_collection_access}],
 
     %% Name, NbAcceptors, TransOpts, ProtoOpts

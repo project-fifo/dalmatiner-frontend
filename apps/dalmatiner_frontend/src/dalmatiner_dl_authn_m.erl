@@ -21,7 +21,8 @@ execute(Req, Env) ->
     catch
         Exception:Reason ->
             Stack = erlang:get_stacktrace(),
-            lager:error("Error in authntication middleware (~p:~p): ~p", [Exception, Reason, Stack]),
+            lager:error("Error in authntication middleware (~p:~p): ~p",
+                        [Exception, Reason, Stack]),
             {error, 500, Req}
     end.
 

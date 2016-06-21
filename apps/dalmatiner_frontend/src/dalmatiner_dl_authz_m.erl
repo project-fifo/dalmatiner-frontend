@@ -19,7 +19,8 @@ execute(Req, Env) ->
     catch
         Exception:Reason ->
             Stack = erlang:get_stacktrace(),
-            lager:error("Error in authorization hook (~p:~p): ~p", [Exception, Reason, Stack]),
+            lager:error("Error in authorization hook (~p:~p): ~p",
+                        [Exception, Reason, Stack]),
             {error, 500, Req}
     end.
 
@@ -108,7 +109,8 @@ assert(require_query_collection_access, Req) ->
             {UserId, Req2} = cowboy_req:meta(dl_auth_user, Req1),
             {ok, Orgs} = dalmatiner_dl_data:user_orgs(UserId),
             OrgOidMap = lists:foldl(fun (O, Acc) ->
-                                            Acc#{maps:get(<<"_id">>, O) => allow}
+                                            K = maps:get(<<"_id">>, O),
+                                            Acc#{K => allow}
                                    end, #{}, Orgs),
             AList = gb_trees:values(Aliases),
             Access = check_query_access(Parts ++ AList, OrgOidMap),
@@ -132,7 +134,7 @@ check_query_part_access({named, _N, Nested}, OrgOidMap) ->
     check_query_part_access(Nested, OrgOidMap);
 check_query_part_access({calc, _Chain, Selector}, OrgOidMap) ->
     check_query_part_access(Selector, OrgOidMap);
-% Always allow access to variables, because they will be checked in aliases section
+% Always allow access to variables, because they will be checked in aliases part
 check_query_part_access({var, _Name}, _OrgOidMap) ->
     allow;
 % Right now access by bucket is groupped and finger is first segment of metric

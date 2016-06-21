@@ -62,12 +62,14 @@ handle_call({token, TokenId}, _From, #state{connection = C} = State) ->
     Token = find_token(C, TokenId),
     lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Token}, State};
-handle_call({user_org_access, UserId, OrgId}, _From, #state{connection = C} = State) ->
+handle_call({user_org_access, UserId, OrgId}, _From,
+            #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Access = check_user_org_access(C, UserId, OrgId),
     lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Access}, State};
-handle_call({agent_access, Finger, OrgOids}, _From, #state{connection = C} = State) ->
+handle_call({agent_access, Finger, OrgOids}, _From,
+            #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Access = check_agent_access(C, Finger, OrgOids),
     lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
@@ -114,7 +116,7 @@ find_user_group_ids(C, UserId) ->
 find_orgs_for_gids(C, Gids) ->
     Cursor = mc_worker_api:find(C, <<"orgs">>,
                                   {<<"group">>, {<<"$in">>, Gids}},
-                                 #{projector => 
+                                 #{projector =>
                                        {<<"name">>, true,
                                         <<"tenant">>, true}}),
     Orgs = mc_cursor:foldl(fun (O, Acc) ->
@@ -146,7 +148,7 @@ check_user_org_access(C, UserId, OrgId) ->
     Org = mc_worker_api:find_one(C, <<"orgs">>, {<<"_id">>, OrgOid},
                                  #{projector => {<<"group">>, true}}),
     Gid = maps:get(<<"group">>, Org, undefined),
-    Group = mc_worker_api:find_one(C, <<"groups">>, 
+    Group = mc_worker_api:find_one(C, <<"groups">>,
                                    {<<"_id">>, Gid,
                                     <<"users.user">>, UserOid},
                                    #{projector => {<<"users">>, true}}),
@@ -154,7 +156,7 @@ check_user_org_access(C, UserId, OrgId) ->
         #{<<"_id">> := _} ->
             allow;
         _ ->
-            deny    
+            deny
     end.
 
 check_agent_access(C, Finger, OrgOids) ->

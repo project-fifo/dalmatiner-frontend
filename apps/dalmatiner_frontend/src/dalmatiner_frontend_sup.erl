@@ -32,11 +32,11 @@ init([]) ->
 
 mongo_spec () ->
     Name = dalmatiner_dl_data_pool,
-    {ok, PoolSize} = application:get_env(dalmatiner_frontend, mongodb_pool_size),
+    {ok, PoolS} = application:get_env(dalmatiner_frontend, mongodb_pool_size),
     {ok, PoolMax} = application:get_env(dalmatiner_frontend, mongodb_pool_max),
     PoolArgs = [{name, {local, Name}},
                 {worker_module, dalmatiner_dl_data},
-                {size, PoolSize},
+                {size, PoolS},
                 {max_overflow, PoolMax}],
     MongoArgs = mongo_args(),
     poolboy:child_spec(Name, PoolArgs, MongoArgs).
