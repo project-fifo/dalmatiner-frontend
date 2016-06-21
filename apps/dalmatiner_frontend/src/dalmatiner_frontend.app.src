@@ -12,7 +12,11 @@
                   ranch,
                   jsone,
                   msgpack,
-                  cowboy
+                  cowboy,
+                  ejwt,
+                  mongodb,
+                  poolboy,
+                  base16
                  ]},
   {mod, { dalmatiner_frontend_app, []}},
   {env, []}

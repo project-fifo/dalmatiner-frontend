@@ -55,6 +55,36 @@ start(_StartType, _StartArgs) ->
                          %% Dataloop API extension
                          {"/status", dalmatiner_status_handler, []},
                          {"/inspect", dalmatiner_inspect_handler, []},
+                         {"/dl", dalmatiner_idx_handler, []},
+                         %% List all collections
+                         {"/dl/collections", dalmatiner_dl_collection_h, []},
+                         %% List all tag namespaces in collection
+                         {"/dl/collections/:collection/namespaces",
+                          dalmatiner_namespace_h, []},
+                         %% List all tag in a namespace
+                         {"/dl/collections/:collection/namespaces/"
+                          ":namespace/tags",
+                          dalmatiner_tag_h, []},
+                         %% List all values in a teg
+                         {"/dl/collections/:collection/namespaces/"
+                          ":namespace/tags/:tag/values",
+                          dalmatiner_value_h, []},
+                         %% List all metrics in a collection
+                         {"/dl/collections/:collection/metrics/",
+                          dalmatiner_metric_h, []},
+                         %% List all namespaces per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/",
+                          dalmatiner_namespace_h, []},
+                         %% List all tags in a namespace per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/",
+                          dalmatiner_tag_h, []},
+                         %% List all values in a tag per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/"
+                          ":tag/values",
+                          dalmatiner_value_h, []},
 
                          %% STatic content.
                          {"/js/[...]", cowboy_static,
@@ -73,10 +103,24 @@ start(_StartType, _StartArgs) ->
                           {priv_dir, dalmatiner_frontend, "static/",
                            [{mimetypes, cow_mimetypes, web}]}}]}
                  ]),
+
+    %% Access permissions in a format: [{MatchPattern}, Requirement]
+    Acl = [{{path, <<"/dl/collections/">>}, require_collection_access},
+           {{path, <<"/dl/collections">>}, require_authenticated},
+           {[{path, <<"/dl">>}, {param, <<"q">>}],
+            require_query_collection_access}],
+
     %% Name, NbAcceptors, TransOpts, ProtoOpts
     {ok, _} = cowboy:start_http(dalmatiner_http_listener, Listeners,
                                 [{port, Port}],
-                                [{env, [{dispatch, Dispatch}]},
+                                [{env,
+                                  [{dispatch, Dispatch},
+                                   {acl, Acl}]},
+                                 {middlewares,
+                                  [dalmatiner_dl_authn_m,
+                                   cowboy_router,
+                                   dalmatiner_dl_authz_m,
+                                   cowboy_handler]},
                                  {max_keepalive, 5},
                                  {timeout, 50000}]),
     dalmatiner_frontend_sup:start_link().
