@@ -17,6 +17,9 @@ start(_StartType, _StartArgs) ->
                  [
                   %% {URIHost, list({URIPath, Handler, Opts})}
                   {'_', [{"/", dalmatiner_idx_handler, []},
+                         %% Old style API
+                         {"/buckets/", dalmatiner_bucket_h, []},
+                         {"/buckets/[...]", dalmatiner_key_h, []},
 
                          %% New style API
                          %% List all collections
@@ -52,6 +55,35 @@ start(_StartType, _StartArgs) ->
                          %% Dataloop API extension
                          {"/status", dalmatiner_status_handler, []},
                          {"/inspect", dalmatiner_inspect_handler, []},
+                         %% List all collections
+                         {"/dl/collections", dalmatiner_dl_collection_h, []},
+                         %% List all tag namespaces in collection
+                         {"/dl/collections/:collection/namespaces",
+                          dalmatiner_namespace_h, []},
+                         %% List all tag in a namespace
+                         {"/dl/collections/:collection/namespaces/"
+                          ":namespace/tags",
+                          dalmatiner_tag_h, []},
+                         %% List all values in a teg
+                         {"/dl/collections/:collection/namespaces/"
+                          ":namespace/tags/:tag/values",
+                          dalmatiner_value_h, []},
+                         %% List all metrics in a collection
+                         {"/dl/collections/:collection/metrics/",
+                          dalmatiner_metric_h, []},
+                         %% List all namespaces per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/",
+                          dalmatiner_namespace_h, []},
+                         %% List all tags in a namespace per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/",
+                          dalmatiner_tag_h, []},
+                         %% List all values in a tag per metric
+                         {"/dl/collections/:collection/metrics/"
+                          ":metric/namespaces/:namespace/tags/"
+                          ":tag/values",
+                          dalmatiner_value_h, []},
 
                          %% STatic content.
                          {"/js/[...]", cowboy_static,
@@ -72,14 +104,15 @@ start(_StartType, _StartArgs) ->
                  ]),
 
     %% Access permissions in a format: [{MatchPattern}, Requirement]
-    Acl = [{{path, <<"/collections/">>}, require_collection_access},
-           {{path, <<"/collections">>}, require_authenticated},
-           {{param, <<"q">>}, require_query_collection_access}],
+    Acl = [{{path, <<"/dl/collections/">>}, require_collection_access},
+           {{path, <<"/dl/collections">>}, require_authenticated},
+           {[{path, <<"/dl">>}, {param, <<"q">>}], 
+            require_query_collection_access}],
 
     %% Name, NbAcceptors, TransOpts, ProtoOpts
     {ok, _} = cowboy:start_http(dalmatiner_http_listener, Listeners,
                                 [{port, Port}],
-                                [{env, 
+                                [{env,
                                   [{dispatch, Dispatch},
                                    {acl, Acl}]},
                                  {middlewares,

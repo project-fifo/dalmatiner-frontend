@@ -50,6 +50,15 @@ eval_acl([{Pattern, Perm} | Rest], Req) ->
             eval_acl(Rest, Req1)
     end.
 
+match([], Req) ->
+    {true, Req};
+match([Cond, Rest], Req) ->
+    case match(Cond, Req) of
+        {true, Req1} ->
+            match(Rest, Req1);
+        R ->
+            R
+    end;
 match({path, Pattern}, Req) ->
     {Path, Req1} = cowboy_req:path(Req),
     case match_binary(Path, Pattern) of

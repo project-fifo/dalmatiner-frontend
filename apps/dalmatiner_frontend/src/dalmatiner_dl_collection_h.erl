@@ -1,4 +1,4 @@
--module(dalmatiner_collection_h).
+-module(dalmatiner_dl_collection_h).
 -behaviour(cowboy_http_handler).
 
 -export([init/3, handle/2, terminate/3]).
@@ -26,8 +26,13 @@ handle(Req, State) ->
             {ok, Req3} = cowboy_req:reply(200, Req2),
             {ok, Req3, State};
         _ ->
-            {ok, Bs} = dqe_idx:collections(),
-            dalmatiner_idx_handler:send(ContentType, Bs, Req1, State)
+            {UserId, Req2} = cowboy_req:meta(dl_auth_user, Req1),
+            {ok, Orgs} = dalmatiner_dl_data:user_orgs(UserId),
+            Json = [#{key => base16:encode(Id),
+                      label => Name}
+                    || #{<<"_id">> := {Id},
+                         <<"name">> := Name} <- Orgs],
+            dalmatiner_idx_handler:send(ContentType, Json, Req2, State)
     end.
 
 terminate(_Reason, _Req, _State) ->
