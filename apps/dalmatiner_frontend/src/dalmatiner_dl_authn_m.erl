@@ -62,9 +62,31 @@ populate_req_meta([{<<"scopes">>, S} | Rest], Req) ->
 populate_req_meta([{<<"aud">>, U} | Rest], Req) ->
     Req1 = cowboy_req:set_meta(dl_auth_user, U, Req),
     populate_req_meta(Rest, Req1);
+%% SSO generated tokens have expiration, that need to be checked before
+%% request is authenticated
 populate_req_meta([{<<"exp">>, E} | Rest], Req) ->
     IsAuth = erlang:system_time(seconds) =< E,
     Req1 = cowboy_req:set_meta(dl_auth_is_authenticated, IsAuth, Req),
     populate_req_meta(Rest, Req1);
+%% Application generated tokens don't have expiration, but require check
+%% in mongo, because they may be rovoked.
+populate_req_meta([{<<"jti">>, TokenId} | Rest], Req) ->
+    case dalmatiner_dl_data:token(TokenId) of
+        {ok, #{} = T} when map_size(T) == 0 ->
+            lager:debug("Token not found: ~p", [TokenId]),
+            populate_req_meta(Rest, Req);
+        {ok, #{<<"scopes">> := Scopes}} ->
+            lager:debug("Checking token scopes: ~p", [Scopes]),
+            IsAuth = has_org_scope(Scopes),
+            Req1 = cowboy_req:set_meta(dl_auth_is_authenticated, IsAuth, Req),
+            populate_req_meta(Rest, Req1)
+    end;
 populate_req_meta([_ | Rest], Req) ->
     populate_req_meta(Rest, Req).
+
+has_org_scope([]) ->
+    false;
+has_org_scope([<<"org:", _/binary>> | _]) ->
+    true;
+has_org_scope([_OtherScope | Rest]) ->
+    has_org_scope(Rest).

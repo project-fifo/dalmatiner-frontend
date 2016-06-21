@@ -5,7 +5,7 @@
 
 %% API
 -export([start_link/1]).
--export([user_orgs/1, user_org_access/2, agent_access/2]).
+-export([user_orgs/1, token/1, user_org_access/2, agent_access/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,6 +27,10 @@ start_link(Args) ->
 -spec user_orgs(binary()) -> {ok, [#{}]}.
 user_orgs(UserId) ->
     call({user_orgs, UserId}).
+
+-spec token(binary()) -> {ok, #{}}.
+token(TokenId) ->
+    call({token, TokenId}).
 
 -spec user_org_access(binary(), binary()) -> {ok, allow | deny}.
 user_org_access(UserId, OrgId) ->
@@ -53,6 +57,9 @@ init(ConnectionArgs) ->
 handle_call({user_orgs, UserId}, _From, #state{connection = C} = State) ->
     Orgs = find_user_orgs(C, UserId),
     {reply, {ok, Orgs}, State};
+handle_call({token, TokenId}, _From, #state{connection = C} = State) ->
+    Token = find_token(C, TokenId),
+    {reply, {ok, Token}, State};
 handle_call({user_org_access, UserId, OrgId}, _From, #state{connection = C} = State) ->
     Access = check_user_org_access(C, UserId, OrgId),
     {reply, {ok, Access}, State};
@@ -108,6 +115,10 @@ find_orgs_for_gids(C, Gids) ->
                            end, [], Cursor, infinity),
     mc_cursor:close(Cursor),
     Orgs.
+
+find_token(C, TokenId) ->
+    TokenOid = {base16:decode(TokenId)},
+    mc_worker_api:find_one(C, <<"usertokens">>, {<<"_id">>, TokenOid}).
 
 check_user_org_access(C, UserId, OrgId) ->
     UserOid = {base16:decode(UserId)},
