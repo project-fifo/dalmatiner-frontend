@@ -89,8 +89,7 @@ code_change(_OldVsn, State, _Extra) ->
 find_user_orgs(C, UserId) ->
     Gids = find_user_group_ids(C, UserId),
     Orgs = find_orgs_for_gids(C, Gids),
-    %% TODO: We need to expand tenants as well
-    Orgs.
+    populate_each_org_tenant(C, Orgs).
 
 find_user_group_ids(C, UserId) ->
     UserOid = {base16:decode(UserId)},
@@ -107,14 +106,26 @@ find_orgs_for_gids(C, Gids) ->
     Cursor = mc_worker_api:find(C, <<"orgs">>,
                                   {<<"group">>, {<<"$in">>, Gids}},
                                  #{projector => 
-                                       {<<"_id">>, true,
-                                        <<"name">>, true,
+                                       {<<"name">>, true,
                                         <<"tenant">>, true}}),
     Orgs = mc_cursor:foldl(fun (O, Acc) ->
                                    [O | Acc]
                            end, [], Cursor, infinity),
     mc_cursor:close(Cursor),
     Orgs.
+
+populate_each_org_tenant(C, Orgs) ->
+    Uids = [T || #{<<"tenant">> := T} <- Orgs],
+    Cursor = mc_worker_api:find(C, <<"tenants">>,
+                                {<<"_id">>, {<<"$in">>, Uids}},
+                                #{projector => {<<"name">>, true}}),
+    TMap = mc_cursor:foldl(fun (#{<<"_id">> := Uid} = T, Acc) ->
+                                   Acc#{Uid => T}
+                           end, #{}, Cursor, infinity),
+    mc_cursor:close(Cursor),
+    Orgs2 = [O#{<<"tenant">> => maps:get(T, TMap)} ||
+                   #{<<"tenant">> := T} = O <- Orgs],
+    Orgs2.
 
 find_token(C, TokenId) ->
     TokenOid = {base16:decode(TokenId)},

@@ -29,9 +29,11 @@ handle(Req, State) ->
             {UserId, Req2} = cowboy_req:meta(dl_auth_user, Req1),
             {ok, Orgs} = dalmatiner_dl_data:user_orgs(UserId),
             Json = [#{key => base16:encode(Id),
-                      label => Name}
+                      label => <<TName/binary, ":", OName/binary>>}
                     || #{<<"_id">> := {Id},
-                         <<"name">> := Name} <- Orgs],
+                         <<"name">> := OName,
+                         <<"tenant">> :=
+                             #{<<"name">> := TName}} <- Orgs],
             dalmatiner_idx_handler:send(ContentType, Json, Req2, State)
     end.
 

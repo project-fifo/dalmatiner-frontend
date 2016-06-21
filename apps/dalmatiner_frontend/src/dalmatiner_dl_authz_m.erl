@@ -134,7 +134,6 @@ check_query_part_access({calc, _Chain, Selector}, OrgOidMap) ->
     check_query_part_access(Selector, OrgOidMap);
 % Always allow access to variables, because they will be checked in aliases section
 check_query_part_access({var, _Name}, _OrgOidMap) ->
-    % TODO: Need to test access rights with aliases
     allow;
 % Right now access by bucket is groupped and finger is first segment of metric
 check_query_part_access({get, {_Bucket, Metric}}, OrgOidMap) ->
