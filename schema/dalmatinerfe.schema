@@ -9,3 +9,14 @@
 {mapping, "http_listeners", "dalmatiner_frontend.http_listeners",
  [{default, 100},
   {datatype, integer}]}.
+
+%% @doc Bease64 encoded JWT Token authentication secret.
+{mapping, "jwt_secret", "dalmatiner_frontend.jwt_secret",
+ [{default, "some+secret"},
+  {datatype, string}]}.
+
+{translation, "dalmatiner_frontend.jwt_secret",
+ fun (Conf) ->
+         Setting = cuttlefish:conf_get("jwt_secret", Conf),
+         base64:decode(Setting)
+ end}.
