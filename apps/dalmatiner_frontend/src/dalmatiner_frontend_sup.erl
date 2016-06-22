@@ -51,7 +51,7 @@ mongo_args () ->
     A2 = get_binary_arg(database, A1),
     A3 = get_binary_arg(login, A2),
     A4 = get_binary_arg(password, A3),
-    case application:get_env(dalmatiner_frontend, slave_ok) of
+    case application:get_env(dalmatiner_frontend, mongodb_slave_ok) of
         {ok, true} ->
             [{r_mode, slave_ok} | A4];
         _ ->
