@@ -7,7 +7,6 @@
                   kernel,
                   stdlib,
                   dqe,
-                  dqe_idx_mongodb,
                   lager,
                   ranch,
                   jsone,

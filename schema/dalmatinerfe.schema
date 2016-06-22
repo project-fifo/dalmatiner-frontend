@@ -10,8 +10,11 @@
  [{default, 100},
   {datatype, integer}]}.
 
+%% Dataloop extensions configuration
+%% =================================
+
 %% @doc Bease64 encoded JWT Token authentication secret.
-{mapping, "jwt_secret", "dalmatiner_frontend.jwt_secret",
+{mapping, "dl.jwt_secret", "dalmatiner_frontend.jwt_secret",
  [{default, "some+secret"},
   {datatype, string}]}.
 
@@ -20,3 +23,35 @@
          Setting = cuttlefish:conf_get("jwt_secret", Conf),
          base64:decode(Setting)
  end}.
+
+%% @doc Mongodb server address
+{mapping, "dl.mongodb.server", "dalmatiner_frontend.mongodb_server",
+ [{default, {"127.0.0.1", 27017}},
+  {datatype, ip}]}.
+
+%% @doc Mongodb database
+{mapping, "dl.mongodb.database", "dalmatiner_frontend.mongodb_database",
+ [{default, "ddb"},
+  {datatype, string}]}.
+
+%% @doc Mongodb database user
+{mapping, "dl.mongodb.login", "dalmatiner_frontend.mongodb_login",
+ [{datatype, string}]}.
+
+%% @doc Mongodb database password
+{mapping, "dl.mongodb.password", "dalmatiner_frontend.mongodb_password",
+ [{datatype, string}]}.
+
+%% @doc Set to true if you are connecting to slave node
+{mapping, "dl.mongodb.slave_ok", "dalmatiner_frontend.mongodb_slave_ok",
+ [{datatype, flag}]}.
+
+%% @doc Initial number of conneciton pool workers
+{mapping, "dl.mongodb.size", "dalmatiner_frontend.mongodb_pool_size",
+ [{default, 20},
+  {datatype, integer}]}.
+
+%% @doc Maximum number of conneciton pool workers
+{mapping, "dl.mongodb.max", "dalmatiner_frontend.mongodb_pool_max",
+ [{default, 20},
+  {datatype, integer}]}.

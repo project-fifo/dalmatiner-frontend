@@ -42,7 +42,7 @@ mongo_spec () ->
     poolboy:child_spec(Name, PoolArgs, MongoArgs).
 
 mongo_args () ->
-    A1 = case application:get_env(dqe_idx_mongodb, server) of
+    A1 = case application:get_env(dalmatiner_frontend, mongodb_server) of
              {ok, {Host, Port}} ->
                  [{host, Host}, {port, Port}];
              _ ->
@@ -51,7 +51,7 @@ mongo_args () ->
     A2 = get_binary_arg(database, A1),
     A3 = get_binary_arg(login, A2),
     A4 = get_binary_arg(password, A3),
-    case application:get_env(dqe_idx_mongodb, slave_ok) of
+    case application:get_env(dalmatiner_frontend, slave_ok) of
         {ok, true} ->
             [{r_mode, slave_ok} | A4];
         _ ->
@@ -59,7 +59,8 @@ mongo_args () ->
     end.
 
 get_binary_arg (Name, Proplist) ->
-    case application:get_env(dqe_idx_mongodb, Name) of
+    EnvName = list_to_atom("mongo_" ++ atom_to_list(Name)),
+    case application:get_env(dalmatiner_frontend, EnvName) of
         {ok, Value} ->
             BValue = list_to_binary(Value),
             [{Name, BValue} | Proplist];
