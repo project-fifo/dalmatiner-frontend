@@ -20,7 +20,7 @@
 
 {translation, "dalmatiner_frontend.jwt_secret",
  fun (Conf) ->
-         Setting = cuttlefish:conf_get("jwt_secret", Conf),
+         Setting = cuttlefish:conf_get("dl.jwt_secret", Conf),
          base64:decode(Setting)
  end}.
 
@@ -31,7 +31,7 @@
 
 %% @doc Mongodb database
 {mapping, "dl.mongodb.database", "dalmatiner_frontend.mongodb_database",
- [{default, "ddb"},
+ [{default, "dataloop_app_dev"},
   {datatype, string}]}.
 
 %% @doc Mongodb database user

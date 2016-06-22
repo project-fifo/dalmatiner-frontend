@@ -59,7 +59,7 @@ mongo_args () ->
     end.
 
 get_binary_arg (Name, Proplist) ->
-    EnvName = list_to_atom("mongo_" ++ atom_to_list(Name)),
+    EnvName = list_to_atom("mongodb_" ++ atom_to_list(Name)),
     case application:get_env(dalmatiner_frontend, EnvName) of
         {ok, Value} ->
             BValue = list_to_binary(Value),
