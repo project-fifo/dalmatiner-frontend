@@ -60,19 +60,19 @@ handle_call({user_orgs, UserId}, _From, #state{connection = C} = State) ->
 handle_call({token, TokenId}, _From, #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Token = find_token(C, TokenId),
-    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
+    lager:debug("[dalmatiner_dl_data:token] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Token}, State};
 handle_call({user_org_access, UserId, OrgId}, _From,
             #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Access = check_user_org_access(C, UserId, OrgId),
-    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
+    lager:debug("[dalmatiner_dl_data:user_org_access] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Access}, State};
 handle_call({agent_access, Finger, OrgOids}, _From,
             #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Access = check_agent_access(C, Finger, OrgOids),
-    lager:debug("[dalmatiner_dl_data:user_orgs] It took ~wms", [tdelta(T0)]),
+    lager:debug("[dalmatiner_dl_data:agent_access] It took ~wms", [tdelta(T0)]),
     {reply, {ok, Access}, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -98,35 +98,51 @@ tdelta(T0) ->
     (erlang:system_time() - T0)/1000/1000.
 
 find_user_orgs(C, UserId) ->
-    Gids = find_user_group_ids(C, UserId),
-    Orgs = find_orgs_for_gids(C, Gids),
+    Groups = find_user_groups(C, UserId),
+    Orgs = find_orgs_by_group_in(C, Groups),
     populate_each_org_tenant(C, Orgs).
 
-find_user_group_ids(C, UserId) ->
+find_user_groups(C, UserId) ->
     UserOid = {base16:decode(UserId)},
-    Cursor = mc_worker_api:find(C, <<"groups">>,
-                                  {<<"users.user">>, UserOid},
-                                 #{projector => {<<"_id">>, true}}),
-    Gids = mc_cursor:foldl(fun (#{<<"_id">> := Gid}, Acc) ->
-                                   [Gid | Acc]
-                           end, [], Cursor, infinity),
-    mc_cursor:close(Cursor),
-    Gids.
+    find(C, <<"groups">>,
+         {<<"users.user">>, UserOid},
+         #{projector =>
+               {<<"_id">>, true,
+                <<"name">>, true}}).
 
-find_orgs_for_gids(C, Gids) ->
-    Cursor = mc_worker_api:find(C, <<"orgs">>,
-                                  {<<"group">>, {<<"$in">>, Gids}},
-                                 #{projector =>
-                                       {<<"name">>, true,
-                                        <<"tenant">>, true}}),
-    Orgs = mc_cursor:foldl(fun (O, Acc) ->
-                                   [O | Acc]
-                           end, [], Cursor, infinity),
-    mc_cursor:close(Cursor),
-    Orgs.
+find_orgs_by_group_in(C, Groups) ->
+    Fn = fun(#{<<"name">> := <<"org::", _/binary>>,
+               <<"_id">> := Gid}, {OAcc, TAcc}) ->
+                 {[Gid | OAcc], TAcc};
+            (#{<<"name">> := <<"ten::", _/binary>>,
+               <<"_id">> := Gid}, {OAcc, TAcc}) ->
+                 {OAcc, [Gid | TAcc]}
+         end,
+    {OrgGids, TenantGids} = lists:foldl(Fn, {[], []}, Groups),
+    OrgProjector = {<<"name">>, true, <<"tenant">>, true},
+    find_org_by_group_direct(C, OrgGids, OrgProjector) ++
+        find_org_by_group_tenancy(C, TenantGids, OrgProjector).
+
+find_org_by_group_direct(_C, [], _) ->
+    [];
+find_org_by_group_direct(C, Gids, OrgProjector) ->
+    find(C, <<"orgs">>,
+         {<<"group">>, {<<"$in">>, Gids}},
+         #{projector => OrgProjector}).
+
+find_org_by_group_tenancy(_C, [], _) ->
+    [];
+find_org_by_group_tenancy(C, Gids, OrgProjector) ->
+    Tenants = find(C, <<"tenants">>,
+                   {<<"group">>, {<<"$in">>, Gids}},
+                   #{projector => {<<"_id">>, true}}),
+    Tids = pick(<<"_id">>, Tenants),
+    find(C, <<"orgs">>,
+         {<<"tenant">>, {<<"$in">>, Tids}},
+         #{projector => OrgProjector}).
 
 populate_each_org_tenant(C, Orgs) ->
-    Uids = [T || #{<<"tenant">> := T} <- Orgs],
+    Uids = pick(<<"tenant">>, Orgs),
     Cursor = mc_worker_api:find(C, <<"tenants">>,
                                 {<<"_id">>, {<<"$in">>, Uids}},
                                 #{projector => {<<"name">>, true}}),
@@ -135,7 +151,7 @@ populate_each_org_tenant(C, Orgs) ->
                            end, #{}, Cursor, infinity),
     mc_cursor:close(Cursor),
     Orgs2 = [O#{<<"tenant">> => maps:get(T, TMap)} ||
-                   #{<<"tenant">> := T} = O <- Orgs],
+                #{<<"tenant">> := T} = O <- Orgs],
     Orgs2.
 
 find_token(C, TokenId) ->
@@ -143,20 +159,25 @@ find_token(C, TokenId) ->
     mc_worker_api:find_one(C, <<"usertokens">>, {<<"_id">>, TokenOid}).
 
 check_user_org_access(C, UserId, OrgId) ->
-    UserOid = {base16:decode(UserId)},
+    Groups = find_user_groups(C, UserId),
     OrgOid = {base16:decode(OrgId)},
     Org = mc_worker_api:find_one(C, <<"orgs">>, {<<"_id">>, OrgOid},
-                                 #{projector => {<<"group">>, true}}),
-    Gid = maps:get(<<"group">>, Org, undefined),
-    Group = mc_worker_api:find_one(C, <<"groups">>,
-                                   {<<"_id">>, Gid,
-                                    <<"users.user">>, UserOid},
-                                   #{projector => {<<"users">>, true}}),
-    case Group of
-        #{<<"_id">> := _} ->
-            allow;
-        _ ->
-            deny
+                                 #{projector => {
+                                     <<"group">>, true,
+                                     <<"tenant">>, true}}),
+    #{<<"tenant">> := Tenant, <<"group">> := Group} = Org,
+    case includes(<<"_id">>, Group, Groups) of
+        true -> allow;
+        _ -> check_user_tenant_access(C, Groups, Tenant)
+    end.
+
+check_user_tenant_access(C, UserGroups, TenantOid) ->
+    Tenant = mc_worker_api:find_one(C, <<"tenants">>, {<<"_id">>, TenantOid},
+                                    #{projector => {<<"group">>, true}}),
+    #{<<"group">> := Group} = Tenant,
+    case includes(<<"_id">>, Group, UserGroups) of
+        true -> allow;
+        false -> deny
     end.
 
 check_agent_access(C, Finger, OrgOids) ->
@@ -169,4 +190,23 @@ check_agent_access(C, Finger, OrgOids) ->
             allow;
         _ ->
             deny
+    end.
+
+find(C, Coll, Selector, Args) ->
+    Cursor = mc_worker_api:find(C, Coll, Selector, Args),
+    Docs = mc_cursor:foldl(fun (Doc, Acc) ->
+                                   [Doc | Acc]
+                           end, [], Cursor, infinity),
+    mc_cursor:close(Cursor),
+    Docs.
+
+pick(Key, List) ->
+    [V || #{Key := V} <- List].
+
+includes(_K, _V, []) ->
+    false;
+includes(K, V, [M | Rest]) ->
+    case M of
+        #{K := V} -> true;
+        _ -> includes(K, V, Rest)
     end.
