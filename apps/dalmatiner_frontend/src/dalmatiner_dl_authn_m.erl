@@ -35,14 +35,25 @@ authenticate(Req) ->
     case cowboy_req:header(<<"authorization">>, Req) of
         {undefined, Req1} ->
             %% If there is no authorization header, then continoue anonymously
-            {ok, Req1};
+            {Param, Req2} = cowboy_req:qs_val(<<"token">>, Req1),
+            authenticate_param(Param, Req2);
         {Auth, Req1} ->
             [RawType | Rest] = binary:split(Auth, <<" ">>),
             Type = string:to_lower(binary_to_list(RawType)),
             authenticate_header([Type | Rest], Req1)
     end.
 
+authenticate_param(undefined, Req) ->
+    {ok, Req};
+authenticate_param(Token, Req) ->
+    authenticate_token(Token, Req).
+
 authenticate_header(["bearer", Token], Req) ->
+    authenticate_token(Token, Req);
+authenticate_header(_Parts, Req) ->
+    {ok, Req}.
+
+authenticate_token(Token, Req) ->
     {ok, Key} = application:get_env(dalmatiner_frontend, jwt_secret),
     case ejwt:decode(Token, Key) of
         error ->
@@ -51,9 +62,7 @@ authenticate_header(["bearer", Token], Req) ->
         Payload ->
             Req1 = populate_req_meta(Payload, Req),
             {ok, Req1}
-    end;
-authenticate_header(_Parts, Req) ->
-    {ok, Req}.
+    end.
 
 populate_req_meta([], Req) ->
     Req;
