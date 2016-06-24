@@ -111,10 +111,10 @@ find_user_groups(C, UserId) ->
                 <<"name">>, true}}).
 
 find_orgs_by_group_in(C, Groups) ->
-    Fn = fun(#{<<"name">> := <<"org::", _/binary>>,
+    Fn = fun(#{<<"name">> := <<"org:", _/binary>>,
                <<"_id">> := Gid}, {OAcc, TAcc}) ->
                  {[Gid | OAcc], TAcc};
-            (#{<<"name">> := <<"ten::", _/binary>>,
+            (#{<<"name">> := <<"ten:", _/binary>>,
                <<"_id">> := Gid}, {OAcc, TAcc}) ->
                  {OAcc, [Gid | TAcc]}
          end,
