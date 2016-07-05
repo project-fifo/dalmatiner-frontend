@@ -144,6 +144,9 @@ check_query_part_access({get, {_Bucket, Metric}}, OrgOidMap) ->
     {ok, Access} = dalmatiner_dl_data:agent_access(Finger, OrgOids),
     Access;
 % Mapping by colleciton already uses collection as org id
-check_query_part_access({lookup, {in, Collection, _Metric}}, OrgOidMap) ->
+check_query_part_access({lookup, {in, Collection, _Met}}, OrgOidMap) ->
+    Oid = {base16:decode(Collection)},
+    maps:get(Oid, OrgOidMap, deny);
+check_query_part_access({lookup, {in, Collection, _Met, _Where}}, OrgOidMap) ->
     Oid = {base16:decode(Collection)},
     maps:get(Oid, OrgOidMap, deny).

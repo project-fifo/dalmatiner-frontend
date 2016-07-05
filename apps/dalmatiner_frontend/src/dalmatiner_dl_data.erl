@@ -66,7 +66,8 @@ handle_call({user_org_access, UserId, OrgId}, _From,
             #state{connection = C} = State) ->
     T0 = erlang:system_time(),
     Access = check_user_org_access(C, UserId, OrgId),
-    lager:debug("[dalmatiner_dl_data:user_org_access] It took ~wms", [tdelta(T0)]),
+    lager:debug("[dalmatiner_dl_data:user_org_access] It took ~wms",
+                [tdelta(T0)]),
     {reply, {ok, Access}, State};
 handle_call({agent_access, Finger, OrgOids}, _From,
             #state{connection = C} = State) ->
