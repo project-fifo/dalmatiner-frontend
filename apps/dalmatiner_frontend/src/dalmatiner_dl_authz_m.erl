@@ -134,6 +134,8 @@ check_query_part_access({named, _N, Nested}, OrgOidMap) ->
     check_query_part_access(Nested, OrgOidMap);
 check_query_part_access({calc, _Chain, Selector}, OrgOidMap) ->
     check_query_part_access(Selector, OrgOidMap);
+check_query_part_access({combine, _Operation, Selector}, OrgOidMap) ->
+    check_query_part_access(Selector, OrgOidMap);
 % Always allow access to variables, because they will be checked in aliases part
 check_query_part_access({var, _Name}, _OrgOidMap) ->
     allow;
@@ -143,6 +145,9 @@ check_query_part_access({get, {_Bucket, Metric}}, OrgOidMap) ->
     OrgOids = maps:keys(OrgOidMap),
     {ok, Access} = dalmatiner_dl_data:agent_access(Finger, OrgOids),
     Access;
+% We do the same with globs
+check_query_part_access({sget, {Bucket, Glob}}, OrgOidMap) ->
+    check_query_part_access({get, {Bucket, Glob}}, OrgOidMap);
 % Mapping by colleciton already uses collection as org id
 check_query_part_access({lookup, {in, Collection, _Met}}, OrgOidMap) ->
     Oid = {base16:decode(Collection)},
